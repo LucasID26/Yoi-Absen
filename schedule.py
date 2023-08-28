@@ -1,11 +1,12 @@
 from database import mydb 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
+import json
 
-
-db = mydb["Absen_Bot"] 
+get_data = open("json/absen.json")
+DB = json.load(get_data)
 
 def wita():
-  db.delete_many({"zona":"WITA"})
+  return
 
 
 def wit():

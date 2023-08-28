@@ -6,9 +6,10 @@ from pytz import timezone
 from datetime import datetime 
 from pykeyboard import InlineKeyboard,InlineButton
 from decorator import bot_admin
+import json
 
-
-db = mydb["Absen_Bot"] 
+get_absen = open("json/absen.json")
+DB = json.load(get_absen)
 
 
 
@@ -54,16 +55,19 @@ async def start(client,m):
 async def absen(client,m):
   if m.chat.type.value == "private":
     return await m.reply_text("Perintah ini dibuat untuk digunakan di obrolan grup, bukan di pm!")
-  chatid = m.chat.id
+  chatid = str(m.chat.id)
   userid = str(m.from_user.id)
-  key = {"chatid": chatid}
   if m.command[0] == "start_wib":
     wib = datetime.now(tz=timezone('Asia/Jakarta'))
     hari_wib = wib.strftime("%A")
     bulan_wib = wib.strftime("%B")
     tgl_wib = wib.strftime(f"Hari {list_hari[f'{hari_wib}']} , tanggal %d {list_bulan[f'{bulan_wib}']} %Y")
-    if db.find_one(key):
-      db.delete_many(key)
+    if chatid in DB['WIB']:
+      del DB['WIB'][chatid]
+    if chatid in DB['WITA']:
+      del DB['WITA'][chatid]
+    if chatid in DB['WIT']:
+      del DB['WIT'][chatid]
     button = InlineKeyboard()
     button.add(
     InlineButton("Hadir",callback_data='hadir_wib'))
@@ -74,101 +78,118 @@ async def absen(client,m):
     hari_wit = wit.strftime("%A")
     bulan_wit = wit.strftime("%B")
     tgl_wit = wit.strftime(f"Hari {list_hari[f'{hari_wit}']} , tanggal %d {list_bulan[f'{bulan_wit}']} %Y")
-    if db.find_one(key):
-      db.delete_many(key)
+    if chatid in DB['WIB']:
+      del DB['WIB'][chatid]
+    if chatid in DB['WITA']:
+      del DB['WITA'][chatid]
+    if chatid in DB['WIT']:
+      del DB['WIT'][chatid]
     button = InlineKeyboard()
     button.add(
     InlineButton("Hadir",callback_data='hadir_wit'))
     msg = await m.reply_text(f"__**START ABSEN**__: {m.chat.title}\n{tgl_wit} WIT\n\nTidak ada yang hadir!\n\nSilahkan klik button dibawah untuk absen!",reply_markup=button)
-  
+
   elif m.command[0] == "start_wita":
     wita = datetime.now(tz=timezone('Asia/Makassar'))
     hari_wita = wita.strftime("%A")
     bulan_wita = wita.strftime("%B")
     tgl_wita = wita.strftime(f"Hari {list_hari[f'{hari_wita}']} , tanggal %d {list_bulan[f'{bulan_wita}']} %Y")
-    if db.find_one(key):
-      db.delete_many(key)
+    if chatid in DB['WIB']:
+      del DB['WIB'][chatid]
+    if chatid in DB['WITA']:
+      del DB['WITA'][chatid]
+    if chatid in DB['WIT']:
+      del DB['WIT'][chatid]
     button = InlineKeyboard()
     button.add(
     InlineButton("Hadir",callback_data='hadir_wita'))
     msg = await m.reply_text(f"__**START ABSEN**__: {m.chat.title}\n{tgl_wita} WITA\n\nTidak ada yang hadir!\n\nSilahkan klik button dibawah untuk absen!",reply_markup=button)
+  with open("json/absen.json") as data:
+    json.dump(DB,data,indent=2)
   await msg.pin()   
 
     
 #CALLBACK      
 @bot.on_callback_query(filters.regex("^hadir_wib$"))
 async def callback(_,call):
+  global DB
   wib = datetime.now(tz=timezone('Asia/Jakarta'))
   time_wib = wib.strftime("%H:%M:%S")
   hari_wib = wib.strftime("%A")
   bulan_wib = wib.strftime("%B")
   tgl_wib = wib.strftime(f"Hari {list_hari[f'{hari_wib}']} , tanggal %d {list_bulan[f'{bulan_wib}']} %Y")
-  user = call.from_user.id
-  chatid = call.message.chat.id
+  user = str(call.from_user.id)
+  chatid = str(call.message.chat.id)
   button = InlineKeyboard()
   button.add(
     InlineButton("Hadir",callback_data='hadir_wib'))
-  key = {"chatid": chatid}
-  key1 = {"chatid": chatid,"userid": user} 
   hasil = ""
-  if db.find_one(key):
-    if db.find_one(key1):
+  if chatid in DB['WIB']:
+    if user in DB['WIB'][chatid]:
       await call.answer("Kamu sudah hadir hari ini!",True)
     else:
-      db.insert_one({"chatid": chatid,"userid": user,"time": time_wib,"zona": "WIB","msgid":call.message.id})
+      DB['WIB'][chatid] = {user: time_wib)
+      with open("json/absen.json") as data:
+        json.dump(DB,data,indent=2)
       angka = 1
-      for users in db.find(key):
-        nama = (await bot.get_users(users["userid"])).first_name
-        waktu = users["time"] 
+      for users in DB['WIB'][chatid]:
+        nama = (await bot.get_users(int(users))).first_name
+        waktu = DB['WIB'][chatid][users]
         hasil += f"{angka}.{nama} → {waktu}\n" 
         angka += 1
       return await call.message.edit_text(f"__**START ABSEN**__: {call.message.chat.title}\n{tgl_wib} WIB\n\n{hasil}\n\nSilahkan klik button dibawah untuk absen!",reply_markup=button)
 
   else:
-    db.insert_one({"chatid": chatid,"userid": user,"time": time_wib,"zona": "WIB","msgid":call.message.id})
+    DB['WIB'] = {chatid: {user: time_wib}}
+    with open("json/absen.json") as data:
+      json.dump(DB,data,indent=2)
     angka = 1
-    for users in db.find(key):
-      nama = (await bot.get_users(users["userid"])).first_name
-      waktu = users["time"] 
+    for users in DB['WIB'][chatid]:
+      nama = (await bot.get_users(int(users))).first_name
+      waktu = DB['WIB'][chatid][users]
       hasil += f"{angka}.{nama} → {waktu}\n"
       angka += 1
     return await call.message.edit_text(f"__**START ABSEN**__: {call.message.chat.title}\n{tgl_wib} WIB\n\n{hasil}\n\nSilahkan klik button dibawah untuk absen!",reply_markup=button)
       
 
 @bot.on_callback_query(filters.regex("^hadir_wita$"))
-async def callback(_,call): 
+async def callback(_,call):
+  global DB
   wita = datetime.now(tz=timezone('Asia/Makassar'))
   time_wita = wita.strftime("%H:%M:%S") 
   hari_wita = wita.strftime("%A")
   bulan_wita = wita.strftime("%B")
   tgl_wita = wita.strftime(f"Hari {list_hari[f'{hari_wita}']} , tanggal %d {list_bulan[f'{bulan_wita}']} %Y")
-  user = call.from_user.id
-  chatid = call.message.chat.id
+  user = str(call.from_user.id)
+  chatid = str(call.message.chat.id)
   button = InlineKeyboard()
   button.add(
-    InlineButton("Hadir",callback_data='hadir_wita'))
-  key = {"chatid": chatid}
-  key1 = {"chatid": chatid,"userid": user} 
+    InlineButton("Hadir",callback_data='hadir_wita')
+
   hasil = ""
-  if db.find_one(key):
-    if db.find_one(key1):
+  if chatid in DB['WITA']:
+    if user in DB['WITA'][chatid]:
       await call.answer("Kamu sudah hadir hari ini!",True)
     else:
-      db.insert_one({"chatid": chatid,"userid": user,"time": time_wita,"zona": "WITA","msgid":call.message.id}) 
+      DB['WITA'][chatid] = {user: time_wita}}
+      with open("json/absen.json") as data:
+        json.dump(DB,data,indent=2)
       angka = 1
-      for users in db.find(key):
-        nama = (await bot.get_users(users["userid"])).first_name
-        waktu = users["time"] 
+      for users in DB['WITA'][chatid]:
+        nama = (await bot.get_users(int(users))).first_name
+        waktu = DB['WITA'][chatid][users]
         hasil += f"{angka}.{nama} → {waktu}\n"
         angka += 1
       return await call.message.edit_text(f"__**START ABSEN**__: {call.message.chat.title}\n{tgl_wita} WITA\n\n{hasil}\n\nSilahkan klik button dibawah untuk absen!",reply_markup=button)
 
   else:
-    db.insert_one({"chatid": chatid,"userid": user,"time": time_wita,"zona": "WITA","msgid":call.message.id})
+    DB['WITA'] = {chatid: {user: time_wita}}
+    with open("json/absen.json") as data:
+      json.dump(DB,data,indent=2)
     angka = 1
-    for users in db.find(key):
-      nama = (await bot.get_users(users["userid"])).first_name
-      waktu = users["time"] 
+    for users in DB['WITA'][chatid]:
+      nama = (await bot.get_users(int(users))).first_name
+      waktu = DB['WITA'][chatid][users]
       hasil += f"{angka}.{nama} → {waktu}\n"
       angka += 1
     return await call.message.edit_text(f"__**START ABSEN**__: {call.message.chat.title}\n{tgl_wita} WITA\n\n{hasil}\n\nSilahkan klik button dibawah untuk absen!",reply_markup=button)  
@@ -176,38 +197,41 @@ async def callback(_,call):
   
 @bot.on_callback_query(filters.regex("^hadir_wit$"))
 async def callback(_,call):
+  global DB
   wit = datetime.now(tz=timezone('Asia/Jayapura'))
   time_wit = wit.strftime("%H:%M:%S") 
   hari_wit = wit.strftime("%A")
   bulan_wit = wit.strftime("%B")
   tgl_wit = wit.strftime(f"Hari {list_hari[f'{hari_wit}']} , tanggal %d {list_bulan[f'{bulan_wit}']} %Y")
-  user = call.from_user.id
-  chatid = call.message.chat.id
+  user = str(call.from_user.id)
+  chatid = str(call.message.chat.id)
   button = InlineKeyboard()
   button.add(
     InlineButton("Hadir",callback_data='hadir_wit'))
-  key = {"chatid": chatid}
-  key1 = {"chatid": chatid,"userid": user} 
   hasil = ""
-  if db.find_one(key):
-    if db.find_one(key1):
+  if chatid in DB['WIT']:
+    if user in DB['WIT'][chatid]:
       await call.answer("Kamu sudah hadir hari ini!",True)
     else:
-      db.insert_one({"chatid": chatid,"userid": user,"time": time_wit,"zona": "WIT","msgid":call.message.id})
+      DB['WIT'][chatid] = {user: time_wit}}
+      with open("json/absen.json") as data:
+        json.dump(DB,data,indent=2)
       angka = 1
-      for users in db.find(key):
-        nama = (await bot.get_users(users["userid"])).first_name
-        waktu = users["time"] 
+      for users in DB['WIT'][chatid]:
+        nama = (await bot.get_users(int(users))).first_name
+        waktu = DB['WIT'][chatid][users]
         hasil += f"{angka}.{nama} → {waktu}\n"
         angka += 1
       return await call.message.edit_text(f"__**START ABSEN**__: {call.message.chat.title}\n{tgl_wit} WIT\n\n{hasil}\n\nSilahkan klik button dibawah untuk absen!",reply_markup=button)
 
   else:
-    db.insert_one({"chatid": chatid,"userid": user,"time": time_wit,"zona": "WIT","msgid":call.message.id}) 
+    DB['WIT'] = {chatid: {user: time_wit}}
+    with open("json/absen.json") as data:
+      json.dump(DB,data,indent=2)
     angka = 1
-    for users in db.find(key):
-      nama = (await bot.get_users(users["userid"])).first_name
-      waktu = users["time"] 
+    for users in DB['WIT'][chatid]:
+      nama = (await bot.get_users(int(users))).first_name
+      waktu = DB['WIT'][chatid][users]
       hasil += f"{angka}.{nama} → {waktu}\n"
       angka += 1
     return await call.message.edit_text(f"__**START ABSEN**__: {call.message.chat.title}\n{tgl_wit} WIT\n\n{hasil}\n\nSilahkan klik button dibawah untuk absen!",reply_markup=button)  
